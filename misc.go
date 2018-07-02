@@ -46,8 +46,8 @@ func inet_aton(ip string) (ip_int uint32) {
 }
 
 func inet_ntoa(ip uint32) string {
-	return fmt.Sprintf("%d.%d.%d.%d", byte(ip>>24), byte(ip>>16), byte(ip>>8),
-		byte(ip))
+	return fmt.Sprintf("%d.%d.%d.%d", byte(ip), byte(ip>>8), byte(ip>>16),
+		byte(ip>>24))
 }
 
 func ntohl(i uint32) uint32 {
