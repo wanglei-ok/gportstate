@@ -1,4 +1,4 @@
-package portstate
+package gportstate
 
 import "testing"
 

@@ -1,7 +1,7 @@
 
 // +build windows
 
-package portstate
+package gportstate
 
 import (
 	"unsafe"
