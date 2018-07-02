@@ -1,17 +1,17 @@
 package gportstate
 
 import (
-	"unsafe"
-	"net"
-	"fmt"
 	"encoding/binary"
+	"fmt"
+	"net"
 	"unicode/utf16"
+	"unsafe"
 )
 
 /*
 #include <stdlib.h>
- */
-import 	"C"
+*/
+import "C"
 
 type memBuffer struct {
 	ptr  unsafe.Pointer

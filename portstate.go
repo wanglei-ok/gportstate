@@ -1,28 +1,26 @@
-
 // +build windows
 
 package gportstate
 
 import (
-	"unsafe"
-	"syscall"
-	"log"
 	"fmt"
+	"log"
+	"syscall"
+	"unsafe"
 )
 
 var (
-	iphlpapi uintptr
-	getTcpTable uintptr
+	iphlpapi     uintptr
+	getTcpTable  uintptr
 	getTcpTable2 uintptr
-	getUdpTable uintptr
+	getUdpTable  uintptr
 )
 
 const ANY_SIZE = 1
 const (
-	NO_ERROR = 0
+	NO_ERROR                  = 0
 	ERROR_INSUFFICIENT_BUFFER = 122
 )
-
 
 type DWORD uint32
 type ULONG uint32
@@ -53,7 +51,6 @@ const (
 	TcpConnectionOffloadStateUploading
 	TcpConnectionOffloadStateMax
 )
-
 
 type MIB_TCPTABLE struct {
 	DwNumEntries DWORD
@@ -88,7 +85,6 @@ type MIB_TCPTABLE2 struct {
 
 type PMIB_TCPTABLE2 *MIB_TCPTABLE2
 
-
 type MIB_UDPTABLE struct {
 	DwNumEntries DWORD
 	Table        [ANY_SIZE]MIB_UDPROW
@@ -101,18 +97,18 @@ type MIB_UDPROW struct {
 	DwLocalPort DWORD
 }
 
-func init(){
+func init() {
 	iphlpapi = loadLibrary("iphlpapi.dll")
 
-	getTcpTable = getProcAddress(iphlpapi,"GetTcpTable")
-	getTcpTable2 = getProcAddress(iphlpapi,"GetTcpTable2")
-	getUdpTable = getProcAddress(iphlpapi,"GetUdpTable")
+	getTcpTable = getProcAddress(iphlpapi, "GetTcpTable")
+	getTcpTable2 = getProcAddress(iphlpapi, "GetTcpTable2")
+	getUdpTable = getProcAddress(iphlpapi, "GetUdpTable")
 }
 
 func loadLibrary(libname string) uintptr {
 	handle, err := syscall.LoadLibrary(libname)
 	if err != nil {
-		log.Fatalf("LoadLibrary %s error:%v",libname, err)
+		log.Fatalf("LoadLibrary %s error:%v", libname, err)
 	}
 	return uintptr(handle)
 }
@@ -120,11 +116,10 @@ func loadLibrary(libname string) uintptr {
 func getProcAddress(lib uintptr, name string) uintptr {
 	addr, err := syscall.GetProcAddress(syscall.Handle(lib), name)
 	if err != nil {
-		log.Fatalf("GetProcAddress %s error:%v",name, err)
+		log.Fatalf("GetProcAddress %s error:%v", name, err)
 	}
 	return uintptr(addr)
 }
-
 
 func getUintptrFromBool(b bool) uintptr {
 	if b {
@@ -135,7 +130,7 @@ func getUintptrFromBool(b bool) uintptr {
 }
 
 func GetTcpTable(tcpTable PMIB_TCPTABLE, sizePointer *DWORD, order bool) DWORD {
-	ret1,_,_ := syscall.Syscall(getTcpTable, 3,
+	ret1, _, _ := syscall.Syscall(getTcpTable, 3,
 		uintptr(unsafe.Pointer(tcpTable)),
 		uintptr(unsafe.Pointer(sizePointer)),
 		getUintptrFromBool(order))
@@ -143,7 +138,7 @@ func GetTcpTable(tcpTable PMIB_TCPTABLE, sizePointer *DWORD, order bool) DWORD {
 }
 
 func GetTcpTable2(tcpTable PMIB_TCPTABLE2, sizePointer *DWORD, order bool) DWORD {
-	ret1,_,_ := syscall.Syscall(getTcpTable2, 3,
+	ret1, _, _ := syscall.Syscall(getTcpTable2, 3,
 		uintptr(unsafe.Pointer(tcpTable)),
 		uintptr(unsafe.Pointer(sizePointer)),
 		getUintptrFromBool(order))
@@ -151,50 +146,49 @@ func GetTcpTable2(tcpTable PMIB_TCPTABLE2, sizePointer *DWORD, order bool) DWORD
 }
 
 func GetUdpTable(udpTable PMIB_UDPTABLE, sizePointer *DWORD, order bool) ULONG {
-	ret1,_,_ := syscall.Syscall(getUdpTable, 3,
+	ret1, _, _ := syscall.Syscall(getUdpTable, 3,
 		uintptr(unsafe.Pointer(udpTable)),
 		uintptr(unsafe.Pointer(sizePointer)),
 		getUintptrFromBool(order))
 	return ULONG(ret1)
 }
 
-
-func GetTcpPortState( nPort ULONG) (MIB_TCP_STATE, bool){
-	var tcpTable[100] MIB_TCPTABLE
+func GetTcpPortState(nPort ULONG) (MIB_TCP_STATE, bool) {
+	var tcpTable [100]MIB_TCPTABLE
 	var nSize DWORD = DWORD(unsafe.Sizeof(tcpTable))
 
-	if NO_ERROR == GetTcpTable( &tcpTable[0], &nSize,true) {
+	if NO_ERROR == GetTcpTable(&tcpTable[0], &nSize, true) {
 		nCount := tcpTable[0].DwNumEntries
-		if nCount > 0	{
+		if nCount > 0 {
 			ptr := uintptr(unsafe.Pointer(&tcpTable[0].Table[0]))
-			for i := DWORD(0);i<nCount;i++ {
+			for i := DWORD(0); i < nCount; i++ {
 				tcpRow := *(*MIB_TCPROW)(unsafe.Pointer(ptr))
 				temp1 := tcpRow.DwLocalPort
-				temp2 := temp1 / 256 + (temp1 % 256) * 256
+				temp2 := temp1/256 + (temp1%256)*256
 				if temp2 == DWORD(nPort) {
 					return tcpRow.State, true
 				}
 
-				ptr+=unsafe.Sizeof(tcpRow)
+				ptr += unsafe.Sizeof(tcpRow)
 			}
 		}
-		return 0,false
+		return 0, false
 	}
-	return 0,false
+	return 0, false
 }
 
-func GetUdpPortState( nPort ULONG ) bool {
-	var udpTable[100] MIB_UDPTABLE
+func GetUdpPortState(nPort ULONG) bool {
+	var udpTable [100]MIB_UDPTABLE
 	var nSize = DWORD(unsafe.Sizeof(udpTable))
 
-	if NO_ERROR == GetUdpTable(&udpTable[0],&nSize,true) {
+	if NO_ERROR == GetUdpTable(&udpTable[0], &nSize, true) {
 		nCount := udpTable[0].DwNumEntries
-		if  nCount > 0 {
+		if nCount > 0 {
 			ptr := uintptr(unsafe.Pointer(&udpTable[0].Table[0]))
-			for i:=DWORD(0);i<nCount;i++ {
+			for i := DWORD(0); i < nCount; i++ {
 				ucpRow := *(*MIB_UDPROW)(unsafe.Pointer(ptr))
 				temp1 := ucpRow.DwLocalPort
-				temp2 := temp1 / 256 + (temp1 % 256) * 256
+				temp2 := temp1/256 + (temp1%256)*256
 				if temp2 == DWORD(nPort) {
 					return true
 				}
@@ -208,20 +202,19 @@ func GetUdpPortState( nPort ULONG ) bool {
 }
 
 var tcpStateStrings = []string{
-"???",
-"CLOSED",
-"LISTENING",
-"SYN_SENT",
-"SEN_RECEIVED",
-"ESTABLISHED",
-"FIN_WAIT",
-"FIN_WAIT2",
-"CLOSE_WAIT",
-"CLOSING",
-"LAST_ACK",
-"TIME_WAIT",
+	"???",
+	"CLOSED",
+	"LISTENING",
+	"SYN_SENT",
+	"SEN_RECEIVED",
+	"ESTABLISHED",
+	"FIN_WAIT",
+	"FIN_WAIT2",
+	"CLOSE_WAIT",
+	"CLOSING",
+	"LAST_ACK",
+	"TIME_WAIT",
 }
-
 
 func EnumTCPTable() DWORD {
 	var pTcpTable *MIB_TCPTABLE = nil
@@ -230,14 +223,14 @@ func EnumTCPTable() DWORD {
 	var buf *memBuffer
 
 	if GetTcpTable(pTcpTable, &dwSize, true) == ERROR_INSUFFICIENT_BUFFER {
-		buf = alloc( uint32(dwSize) )
+		buf = alloc(uint32(dwSize))
 		pTcpTable = PMIB_TCPTABLE(buf.ptr)
 	} else {
 		return dwRetVal
 	}
 
 	fmt.Printf("Active Connections\n\n")
-	fmt.Printf("  Proto\t%-24s%-24s%s\n","Local Address","Foreign Address","State")
+	fmt.Printf("  Proto\t%-24s%-24s%s\n", "Local Address", "Foreign Address", "State")
 
 	if dwRetVal = GetTcpTable(pTcpTable, &dwSize, true); dwRetVal == NO_ERROR {
 		ptr := uintptr(unsafe.Pointer(&pTcpTable.Table[0]))
@@ -248,9 +241,9 @@ func EnumTCPTable() DWORD {
 				tcpRow.DwRemotePort = 0
 			}
 
-			strlip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwLocalAddr)),ntohs(uint16(tcpRow.DwLocalPort)))
-			strrip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwRemoteAddr)),ntohs(uint16(tcpRow.DwRemotePort)))
-			fmt.Printf("  TCP\t%-24s%-24s%s\n",strlip,strrip,tcpStateStrings[tcpRow.State])
+			strlip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwLocalAddr)), ntohs(uint16(tcpRow.DwLocalPort)))
+			strrip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwRemoteAddr)), ntohs(uint16(tcpRow.DwRemotePort)))
+			fmt.Printf("  TCP\t%-24s%-24s%s\n", strlip, strrip, tcpStateStrings[tcpRow.State])
 
 			ptr += unsafe.Sizeof(tcpRow)
 		}
@@ -265,7 +258,7 @@ func EnumTCPTable() DWORD {
 		_, err := syscall.FormatMessage(flags, uint32(libpdhDll.Handle), uint32(dwRetVal), 0, buffer, nil)
 		if err != nil {
 
-		}else{
+		} else {
 			fmt.Printf("\tError: %s", buffer)
 		}
 	}
@@ -285,14 +278,14 @@ func EnumTCPTable2() DWORD {
 
 	//获得pTcpTable所需要的真实长度,dwSize
 	if GetTcpTable2(pTcpTable, &dwSize, true) == ERROR_INSUFFICIENT_BUFFER {
-		buf = alloc( uint32(dwSize) )
+		buf = alloc(uint32(dwSize))
 		pTcpTable = PMIB_TCPTABLE2(buf.ptr)
 	} else {
 		return dwRetVal
 	}
 
 	fmt.Printf("Active Connections\n\n")
-	fmt.Printf("  Proto\t%-24s%-24s%-15s%s\n","Local Address","Foreign Address","State","Pid")
+	fmt.Printf("  Proto\t%-24s%-24s%-15s%s\n", "Local Address", "Foreign Address", "State", "Pid")
 
 	if dwRetVal = GetTcpTable2(pTcpTable, &dwSize, true); dwRetVal == NO_ERROR {
 		ptr := uintptr(unsafe.Pointer(&pTcpTable.Table[0]))
@@ -302,9 +295,9 @@ func EnumTCPTable2() DWORD {
 				tcpRow.DwRemotePort = 0
 			}
 
-			strlip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwLocalAddr)),ntohs(uint16(tcpRow.DwLocalPort)))
-			strrip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwRemoteAddr)),ntohs(uint16(tcpRow.DwRemotePort)))
-			fmt.Printf("  TCP\t%-24s%-24s%-15s%s\n",strlip,strrip,tcpStateStrings[tcpRow.DwState],snapshot.Name(ulong(tcpRow.DwOwningPid)))
+			strlip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwLocalAddr)), ntohs(uint16(tcpRow.DwLocalPort)))
+			strrip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwRemoteAddr)), ntohs(uint16(tcpRow.DwRemotePort)))
+			fmt.Printf("  TCP\t%-24s%-24s%-15s%s\n", strlip, strrip, tcpStateStrings[tcpRow.DwState], snapshot.Name(ulong(tcpRow.DwOwningPid)))
 
 			ptr += unsafe.Sizeof(tcpRow)
 		}
@@ -319,7 +312,7 @@ func EnumTCPTable2() DWORD {
 		_, err := syscall.FormatMessage(flags, uint32(libpdhDll.Handle), uint32(dwRetVal), 0, buffer, nil)
 		if err != nil {
 
-		}else{
+		} else {
 			fmt.Printf("\tError: %s", buffer)
 		}
 	}
@@ -328,8 +321,7 @@ func EnumTCPTable2() DWORD {
 	return dwRetVal
 }
 
-
-func EnumTCPTable2ForPort( port DWORD ) DWORD {
+func EnumTCPTable2ForPort(port DWORD) DWORD {
 	var pTcpTable *MIB_TCPTABLE2 = nil
 	var dwSize DWORD = 0
 	var dwRetVal DWORD = NO_ERROR
@@ -339,17 +331,16 @@ func EnumTCPTable2ForPort( port DWORD ) DWORD {
 
 	snapshot := NewSnapshot()
 
-
 	//获得pTcpTable所需要的真实长度,dwSize
 	if GetTcpTable2(pTcpTable, &dwSize, true) == ERROR_INSUFFICIENT_BUFFER {
-		buf = alloc( uint32(dwSize) )
+		buf = alloc(uint32(dwSize))
 		pTcpTable = PMIB_TCPTABLE2(buf.ptr)
 	} else {
 		return dwRetVal
 	}
 
 	fmt.Printf("Active Connections\n\n")
-	fmt.Printf("  Proto\t%-24s%-24s%-15s%-10s%s\n","Local Address","Foreign Address","State","Pid", "Path")
+	fmt.Printf("  Proto\t%-24s%-24s%-15s%-10s%s\n", "Local Address", "Foreign Address", "State", "Pid", "Path")
 
 	if dwRetVal = GetTcpTable2(pTcpTable, &dwSize, true); dwRetVal == NO_ERROR {
 		ptr := uintptr(unsafe.Pointer(&pTcpTable.Table[0]))
@@ -369,9 +360,9 @@ func EnumTCPTable2ForPort( port DWORD ) DWORD {
 				tcpRow.DwRemotePort = 0
 			}
 
-			strlip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwLocalAddr)),ntohs(uint16(tcpRow.DwLocalPort)))
-			strrip := fmt.Sprintf("%s:%d",inet_ntoa(uint32(tcpRow.DwRemoteAddr)),ntohs(uint16(tcpRow.DwRemotePort)))
-			fmt.Printf("  TCP\t%-24s%-24s%-15s%-10d%s\n",strlip,strrip,tcpStateStrings[tcpRow.DwState],tcpRow.DwOwningPid, snapshot.Name(ulong(tcpRow.DwOwningPid)))
+			strlip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwLocalAddr)), ntohs(uint16(tcpRow.DwLocalPort)))
+			strrip := fmt.Sprintf("%s:%d", inet_ntoa(uint32(tcpRow.DwRemoteAddr)), ntohs(uint16(tcpRow.DwRemotePort)))
+			fmt.Printf("  TCP\t%-24s%-24s%-15s%-10d%s\n", strlip, strrip, tcpStateStrings[tcpRow.DwState], tcpRow.DwOwningPid, snapshot.Name(ulong(tcpRow.DwOwningPid)))
 
 		}
 	} else {
@@ -385,7 +376,7 @@ func EnumTCPTable2ForPort( port DWORD ) DWORD {
 		_, err := syscall.FormatMessage(flags, uint32(libpdhDll.Handle), uint32(dwRetVal), 0, buffer, nil)
 		if err != nil {
 
-		}else{
+		} else {
 			fmt.Printf("\tError: %s", buffer)
 		}
 	}
@@ -395,5 +386,3 @@ func EnumTCPTable2ForPort( port DWORD ) DWORD {
 	snapshot.Print()
 	return dwRetVal
 }
-
-
