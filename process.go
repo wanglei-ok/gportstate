@@ -1,5 +1,7 @@
 package gportstate
 
+import "C"
+
 import (
 	"fmt"
 	"strconv"
@@ -59,7 +61,8 @@ func NewSnapshot() *Snapshot {
 		proc.dwSize = ulong(unsafe.Sizeof(proc))
 		if rt, _, _ := Process32Next.Call(uintptr(pHandle), uintptr(unsafe.Pointer(&proc))); int(rt) == 1 {
 			var pi ProcessInfo
-			pi.Name = string(proc.szExeFile[0:])
+			cs := C.CString(string(proc.szExeFile[0:]))
+			pi.Name = C.GoString(cs) //string(proc.szExeFile[0:])
 			pi.Path = getProcessPath(proc.th32ProcessID)
 			ret[proc.th32ProcessID] = pi
 		} else {
@@ -123,8 +126,9 @@ func getProcessPath(pid ulong) string {
 	var mod MODULEENTRY32
 	mod.dwSize = ulong(unsafe.Sizeof(mod))
 	if rt, _, _ := Module32First.Call(uintptr(pHandle), uintptr(unsafe.Pointer(&mod))); int(rt) == 1 {
-		fmt.Printf("szModule" + string(mod.szModule[0:]))
-		return string(mod.szExePath[0:]) //stringFromUnicode16(&mod.szExePath[0])
+		//fmt.Printf("szModule" + string(mod.szModule[0:]))
+		cs := C.CString(string(mod.szExePath[0:]))
+		return C.GoString(cs) //string(mod.szExePath[0:]) //stringFromUnicode16(&mod.szExePath[0])
 	}
 	CloseHandle := kernel32.NewProc("CloseHandle")
 	_, _, _ = CloseHandle.Call(pHandle)
